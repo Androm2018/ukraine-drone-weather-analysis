@@ -120,9 +120,10 @@ def assign_weather_bucket(df: pd.DataFrame) -> pd.DataFrame:
         pr = precip.iloc[i]  if precip is not None else np.nan
         wc = code.iloc[i]    if code   is not None else "Unknown"
 
-        if wc in adverse_codes or (vi < 4000) or (pr >= 5):
+        vi_ok = not (vi != vi)  # False if NaN
+        if wc in adverse_codes or (vi_ok and vi < 4000) or (pr >= 5):
             conditions.append("ADVERSE")
-        elif (cl < 40) and (vi > 8000) and (pr < 1):
+        elif (cl < 40) and (not vi_ok or vi > 8000) and (pr < 1):
             conditions.append("CLEAR")
         else:
             conditions.append("OVERCAST")
@@ -311,13 +312,18 @@ def fig2_scatter_cloud(df: pd.DataFrame):
 
 def fig3_scatter_visibility(df: pd.DataFrame):
     """Scatter: night visibility vs interception rate."""
-    fig, ax = plt.subplots(figsize=(8, 5))
     col = "avg_night_visibility"
     if col not in df.columns:
         col = "avg_visibility"
 
     valid = df[[col, "interception_rate"]].dropna()
     valid = valid[valid[col] > 0]
+
+    if len(valid) < 5:
+        print(f"  Skipping fig3 — insufficient visibility data (n={len(valid)})")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 5))
     vis_km = valid[col] / 1000
 
     ax.scatter(vis_km, valid["interception_rate"] * 100,
